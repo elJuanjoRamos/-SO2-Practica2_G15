@@ -2,6 +2,8 @@ package main
 
 import (
 	"bufio"
+	"crypto/sha1"
+	"encoding/hex"
 	"fmt"
 	"os"
 	"strconv"
@@ -11,7 +13,7 @@ import (
 	"github.com/gocolly/colly"
 )
 
-var Mono struct {
+type Mono struct {
 	origen          string
 	conteo_palabras int
 	conteo_enlaces  int
@@ -33,28 +35,38 @@ func main() {
 	monos := getReader("Cantidad de monos buscadores: ")
 	intMonos, _ := strconv.Atoi(monos)
 
-	fmt.Println(intMonos)
-
 	cola := getReader("Tamaño de la cola de espera: ")
 	intCola, _ := strconv.Atoi(cola)
-
-	fmt.Println(intCola)
 
 	nr := getReader("Nr: ")
 	intNr, _ := strconv.Atoi(nr)
 
-	fmt.Println(intNr)
-
 	url := getReader("URL: ")
-
-	fmt.Println(url)
 
 	file := getReader("Nombre de archivo: ")
 
 	fmt.Println(file)
 
+	scraper("0", intCola, intNr, url, intMonos)
+
+}
+
+func getSha256(s string) string {
+	h := sha1.New()
+	h.Write([]byte(s))
+	sha1_hash := hex.EncodeToString(h.Sum(nil))
+	return sha1_hash
+}
+
+func scraper(origen string, tam_cola int, nivel int, url string, mono_id int) {
+	base_url := "https://es.wikipedia.org"
+
+	if !strings.Contains(url, base_url) {
+		url = base_url + url
+	}
+
 	c := colly.NewCollector(
-		colly.AllowedDomains("en.wikipedia.org"),
+		colly.AllowedDomains("es.wikipedia.org", "en.wikipedia.org"),
 	)
 
 	c.OnHTML("p", func(e *colly.HTMLElement) {
@@ -66,14 +78,20 @@ func main() {
 		// CONTAR LA CANTIDAD DE ENLACES
 
 		links := e.ChildAttrs("a", "href")
-		fmt.Println("{")
-		fmt.Println("cantidad de palabras: ", len(tokens))
-		fmt.Println("cantidad de enlaces: ", len(links))
-		fmt.Println("},")
-		fmt.Println(links)
+
+		mono := Mono{
+			origen:          origen,
+			conteo_palabras: len(tokens),
+			conteo_enlaces:  len(links),
+			sha:             getSha256(url),
+			url:             url,
+			mono:            mono_id,
+		}
+
+		fmt.Println(mono)
 
 	})
 
-	c.Visit("https://en.wikipedia.org/wiki/Web_scraping")
+	c.Visit(url)
 
 }
