@@ -68,30 +68,37 @@ func scraper(origen string, tam_cola int, nivel int, url string, mono_id int) {
 	c := colly.NewCollector(
 		colly.AllowedDomains("es.wikipedia.org", "en.wikipedia.org"),
 	)
+	// CONTAR LA CANTIDAD DE PALABRAS
+
+	tokens := 0
+	cantLinks := 0
+
+	// CONTAR LA CANTIDAD DE ENLACES
+
+	links := []string{}
 
 	c.OnHTML("p", func(e *colly.HTMLElement) {
 
 		// CONTAR LA CANTIDAD DE PALABRAS
 		t := tokenizer.New()
-		tokens := t.Tokenize(e.Text)
+		tokens = tokens + len(t.Tokenize(e.Text))
 
 		// CONTAR LA CANTIDAD DE ENLACES
 
-		links := e.ChildAttrs("a", "href")
-
-		mono := Mono{
-			origen:          origen,
-			conteo_palabras: len(tokens),
-			conteo_enlaces:  len(links),
-			sha:             getSha256(url),
-			url:             url,
-			mono:            mono_id,
-		}
-
-		fmt.Println(mono)
+		links = e.ChildAttrs("a", "href")
+		cantLinks = cantLinks + len(links)
 
 	})
+	mono := Mono{
+		origen:          origen,
+		conteo_palabras: tokens,
+		conteo_enlaces:  cantLinks,
+		sha:             getSha256(url),
+		url:             url,
+		mono:            mono_id,
+	}
 
+	fmt.Println(mono)
 	c.Visit(url)
 
 }
