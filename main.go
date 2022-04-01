@@ -22,6 +22,12 @@ type Mono struct {
 	mono            int
 }
 
+type StructURL struct {
+	Descripcion string
+}
+
+var arregloURL = make([]StructURL, 0)
+
 func getReader(text string) string {
 	reader := bufio.NewReader(os.Stdin)
 	fmt.Print(text)
@@ -65,6 +71,11 @@ func scraper(origen string, tam_cola int, nivel int, url string, mono_id int) {
 		url = base_url + url
 	}
 
+	des1 := StructURL{
+		Descripcion: url,
+	}
+	arregloURL = append(arregloURL, des1)
+
 	c := colly.NewCollector(
 		colly.AllowedDomains("es.wikipedia.org", "en.wikipedia.org"),
 	)
@@ -94,4 +105,10 @@ func scraper(origen string, tam_cola int, nivel int, url string, mono_id int) {
 
 	c.Visit(url)
 
+}
+
+func recorrer_listaURL() {
+	for i := 0; i < len(arregloURL); i++ {
+		fmt.Println(arregloURL[i])
+	}
 }
