@@ -46,9 +46,49 @@ func main() {
 	file := getReader("Nombre de archivo: ")
 
 	fmt.Println(file)
+	f, err := os.Create(file + ".txt")
+	if err != nil {
+		panic(err)
+	}
 
-	scraper("0", intCola, intNr, url, intMonos)
+	done := make(chan struct{})
 
+	for i := 0; i <= intCola; i = i + (intCola / intMonos) + 1 {
+		paso := i + (intCola / intMonos)
+		if paso > intCola {
+			paso = intCola
+		}
+		go recorrerHijos(url, intMonos, intNr, f, done, paso, i)
+		//scraper("0", intCola, intNr, url, intMonos)
+	}
+
+	dones := 0
+	for dones < intMonos {
+		<-done
+		dones++
+	}
+}
+
+func recorrerHijos(url string, mono_id int, nivel int, f *os.File, done chan struct{}, paso int, inicio int) {
+	for i := inicio; i <= paso; i++ {
+		links := scraper("0", url, mono_id, f)
+		for _, link := range links {
+			hijos(nivel, 1, url, link, mono_id, f)
+		}
+	}
+	done <- struct{}{}
+}
+
+func hijos(nivel int, nivelActual int, origen string, link string, mono_id int, f *os.File) {
+	if nivelActual == nivel {
+		return
+	} else {
+		links := scraper(origen, link, mono_id, f)
+		for _, link := range links {
+			hijos(nivel, nivelActual, origen, link, mono_id, f)
+		}
+		nivelActual++
+	}
 }
 
 func getSha256(s string) string {
@@ -58,7 +98,7 @@ func getSha256(s string) string {
 	return sha1_hash
 }
 
-func scraper(origen string, tam_cola int, nivel int, url string, mono_id int) {
+func scraper(origen string, url string, mono_id int, f *os.File) (links []string) {
 	base_url := "https://es.wikipedia.org"
 
 	if !strings.Contains(url, base_url) {
@@ -77,7 +117,7 @@ func scraper(origen string, tam_cola int, nivel int, url string, mono_id int) {
 
 		// CONTAR LA CANTIDAD DE ENLACES
 
-		links := e.ChildAttrs("a", "href")
+		links = e.ChildAttrs("a", "href")
 
 		mono := Mono{
 			origen:          origen,
@@ -87,11 +127,13 @@ func scraper(origen string, tam_cola int, nivel int, url string, mono_id int) {
 			url:             url,
 			mono:            mono_id,
 		}
-
+		_, err := f.WriteString(fmt.Sprint(mono))
+		if err != nil {
+			panic(err)
+		}
 		fmt.Println(mono)
-
 	})
 
 	c.Visit(url)
-
+	return links
 }
