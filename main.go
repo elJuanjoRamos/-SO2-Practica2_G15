@@ -50,7 +50,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-
+	colaGeneral := []string{}
 	done := make(chan struct{})
 
 	for i := 0; i <= intCola; i = i + (intCola / intMonos) + 1 {
@@ -58,7 +58,7 @@ func main() {
 		if paso > intCola {
 			paso = intCola
 		}
-		go recorrerHijos(url, intMonos, intNr, f, done, paso, i)
+		go recorrerHijos(url, intMonos, intNr, f, done, paso, i, colaGeneral, intCola)
 		//scraper("0", intCola, intNr, url, intMonos)
 	}
 
@@ -69,17 +69,43 @@ func main() {
 	}
 }
 
-func recorrerHijos(url string, mono_id int, nivel int, f *os.File, done chan struct{}, paso int, inicio int) {
+func recorrerHijos(url string, mono_id int, nivel int, f *os.File, done chan struct{}, paso int, inicio int, colaGeneral []string, intCola int) {
+	nivelActual := 0
+	cantHermanos := 0
 	for i := inicio; i <= paso; i++ {
-		links := scraper("0", url, mono_id, f)
-		for _, link := range links {
-			hijos(nivel, 1, url, link, mono_id, f)
+		if len(colaGeneral) == 0 {
+			links := scraper("0", url, mono_id, f)
+			cantHermanos = len(links)
+			for _, element := range links {
+				if len(colaGeneral) < intCola {
+					colaGeneral = append(colaGeneral, element)
+				}
+			}
+			if cantHermanos == 0 {
+				nivelActual++
+			}
+			//cantHermanos--
+		} else {
+			if nivel >= nivelActual {
+				links := scraper("0", colaGeneral[i], mono_id, f)
+				cantHermanos = len(links)
+				for _, element := range links {
+					if len(colaGeneral) < intCola {
+						colaGeneral = append(colaGeneral, element)
+					}
+				}
+				if cantHermanos == 0 {
+					nivelActual++
+				}
+			}
+			cantHermanos--
 		}
+
 	}
 	done <- struct{}{}
 }
 
-func hijos(nivel int, nivelActual int, origen string, link string, mono_id int, f *os.File) {
+/*func hijos(nivel int, nivelActual int, origen string, link string, mono_id int, f *os.File) {
 	if nivelActual == nivel {
 		return
 	} else {
@@ -89,7 +115,7 @@ func hijos(nivel int, nivelActual int, origen string, link string, mono_id int, 
 		}
 		nivelActual++
 	}
-}
+}*/
 
 func getSha256(s string) string {
 	h := sha1.New()
@@ -108,32 +134,40 @@ func scraper(origen string, url string, mono_id int, f *os.File) (links []string
 	c := colly.NewCollector(
 		colly.AllowedDomains("es.wikipedia.org", "en.wikipedia.org"),
 	)
+	// CONTAR LA CANTIDAD DE PALABRAS
+
+	tokens := 0
+	cantLinks := 0
+
+	// CONTAR LA CANTIDAD DE ENLACES
 
 	c.OnHTML("p", func(e *colly.HTMLElement) {
 
 		// CONTAR LA CANTIDAD DE PALABRAS
 		t := tokenizer.New()
-		tokens := t.Tokenize(e.Text)
+		tokens = tokens + len(t.Tokenize(e.Text))
 
 		// CONTAR LA CANTIDAD DE ENLACES
 
-		links = e.ChildAttrs("a", "href")
+		links = append(links, e.ChildAttrs("a", "href")...)
 
-		mono := Mono{
-			origen:          origen,
-			conteo_palabras: len(tokens),
-			conteo_enlaces:  len(links),
-			sha:             getSha256(url),
-			url:             url,
-			mono:            mono_id,
-		}
-		_, err := f.WriteString(fmt.Sprint(mono))
-		if err != nil {
-			panic(err)
-		}
-		fmt.Println(mono)
+		//links = e.ChildAttrs("a", "href")
+		cantLinks = cantLinks + len(links)
+
 	})
-
+	mono := Mono{
+		origen:          origen,
+		conteo_palabras: tokens,
+		conteo_enlaces:  cantLinks,
+		sha:             getSha256(url),
+		url:             url,
+		mono:            mono_id,
+	}
+	_, err := f.WriteString(fmt.Sprint(mono))
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(mono)
 	c.Visit(url)
 	return links
 }
