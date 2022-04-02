@@ -45,7 +45,7 @@ func main() {
 
 	file := getReader("Nombre de archivo: ")
 
-	fmt.Println(file)
+	//fmt.Println(file)
 	f, err := os.Create(file + ".txt")
 	if err != nil {
 		panic(err)
@@ -93,7 +93,7 @@ func buscarMono(inicio int, fin int, f *os.File, done chan struct{}, colaGeneral
 func llenarCola(intCola, intNr int, url string, colaGeneral []Mono) (cola []Mono) {
 	links, cola := scraper("0", intCola, url, 0, colaGeneral)
 	for _, link := range links {
-		fmt.Println("****************otro hijo*****************")
+		//fmt.Println("****************otro hijo*****************")
 		cola = hijos(intCola, intNr, 0, getSha256(url), link, 0, cola)
 		if len(cola) >= intCola {
 			break
@@ -103,9 +103,9 @@ func llenarCola(intCola, intNr int, url string, colaGeneral []Mono) (cola []Mono
 }
 
 func hijos(intCola int, nivel int, nivelActual int, origen string, link string, mono_id int, colaGeneral []Mono) (cola []Mono) {
-	fmt.Println(nivelActual)
+	//fmt.Println(nivelActual)
 	if nivelActual >= nivel {
-		fmt.Println("saliendo")
+		//fmt.Println("saliendo")
 		return colaGeneral
 	} else {
 		links := []string{}
