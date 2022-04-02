@@ -8,18 +8,19 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/euskadi31/go-tokenizer"
 	"github.com/gocolly/colly"
 )
 
 type Mono struct {
-	origen          string
-	conteo_palabras int
-	conteo_enlaces  int
-	sha             string
-	url             string
-	mono            int
+	origen          string `json:"origen"`
+	conteo_palabras int    `json:"conteo_palabras"`
+	conteo_enlaces  int    `json:"conteo_enlaces"`
+	sha             string `json:"sha"`
+	url             string `json:"url"`
+	mono            int    `json:"mono"`
 }
 
 func getReader(text string) string {
@@ -46,10 +47,11 @@ func main() {
 	file := getReader("Nombre de archivo: ")
 
 	//fmt.Println(file)
-	f, err := os.Create(file + ".txt")
+	f, err := os.Create(file + ".json")
 	if err != nil {
 		panic(err)
 	}
+	fmt.Println("Cola")
 	colaGeneral = llenarCola(intCola, intNr, url, colaGeneral)
 	//fmt.Println(hijos)
 	done := make(chan struct{})
@@ -80,21 +82,45 @@ func getSha256(s string) string {
 
 func buscarMono(inicio int, fin int, f *os.File, done chan struct{}, colaGeneral []Mono, no_mono int) {
 	for i := inicio; i < fin; i++ {
+		fmt.Print("No. Mono: ")
+
 		monoActual := colaGeneral[i]
 		monoActual.mono = no_mono
-		_, err := f.WriteString(fmt.Sprint(monoActual))
-		if err != nil {
-			panic(err)
+		fmt.Println(no_mono)
+		fmt.Print("URL: ")
+		fmt.Println(monoActual.url)
+		/*monoSerial := &Mono{
+			origen:          monoActual.origen,
+			conteo_palabras: monoActual.conteo_palabras,
+			conteo_enlaces:  monoActual.conteo_enlaces,
+			sha:             monoActual.sha,
+			url:             monoActual.url,
+			mono:            monoActual.mono,
 		}
+		b, err := json.Marshal(monoSerial)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}*/
+
+		_, error := f.WriteString(fmt.Sprint(monoActual))
+		if error != nil {
+			panic(error)
+		}
+		time.Sleep(time.Duration(monoActual.conteo_palabras) * time.Second)
 	}
+
 	done <- struct{}{}
 }
 
 func llenarCola(intCola, intNr int, url string, colaGeneral []Mono) (cola []Mono) {
 	links, cola := scraper("0", intCola, url, 0, colaGeneral)
-	for _, link := range links {
+	for index, link := range links {
+		if index >= intNr {
+			break
+		}
 		//fmt.Println("****************otro hijo*****************")
-		cola = hijos(intCola, intNr, 0, getSha256(url), link, 0, cola)
+		cola = hijos(intCola, intNr, intNr-1, getSha256(url), link, 0, cola)
 		if len(cola) >= intCola {
 			break
 		}
@@ -104,15 +130,18 @@ func llenarCola(intCola, intNr int, url string, colaGeneral []Mono) (cola []Mono
 
 func hijos(intCola int, nivel int, nivelActual int, origen string, link string, mono_id int, colaGeneral []Mono) (cola []Mono) {
 	//fmt.Println(nivelActual)
-	if nivelActual >= nivel {
+	if nivelActual == 0 {
 		//fmt.Println("saliendo")
 		return colaGeneral
 	} else {
 		links := []string{}
 		links, cola = scraper(origen, intCola, link, mono_id, colaGeneral)
-		nivelActual++
-		if len(cola) < intCola {
-			for _, element := range links {
+		nivelActual--
+		if len(cola) <= intCola {
+			for index, element := range links {
+				if index >= nivelActual {
+					break
+				}
 				cola = hijos(intCola, nivel, nivelActual, getSha256(link), element, mono_id, cola)
 				if len(cola) >= intCola {
 					break
@@ -165,7 +194,7 @@ func scraper(origen string, tam_cola int, url string, mono_id int, colaGeneral [
 		url:             url,
 		mono:            mono_id,
 	}
-	if len(colaGeneral) <= tam_cola {
+	if len(colaGeneral) < tam_cola {
 		cola = append(colaGeneral, mono)
 	}
 	fmt.Println(mono)
