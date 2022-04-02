@@ -31,7 +31,7 @@ func getReader(text string) string {
 }
 
 func main() {
-
+	colaGeneral := []Mono{}
 	monos := getReader("Cantidad de monos buscadores: ")
 	intMonos, _ := strconv.Atoi(monos)
 
@@ -46,9 +46,29 @@ func main() {
 	file := getReader("Nombre de archivo: ")
 
 	fmt.Println(file)
+	f, err := os.Create(file + ".txt")
+	if err != nil {
+		panic(err)
+	}
+	colaGeneral = llenarCola(intCola, intNr, url, colaGeneral)
+	//fmt.Println(hijos)
+	done := make(chan struct{})
+	no_mono := 1
+	for i := 0; i <= intCola; i = i + (intCola / intMonos) + 1 {
+		paso := i + (intCola / intMonos)
+		if paso > intCola {
+			paso = intCola
+		}
+		go buscarMono(i, paso, f, done, colaGeneral, no_mono)
+		no_mono++
+		//scraper("0", intCola, intNr, url, intMonos)
+	}
 
-	scraper("0", intCola, intNr, url, intMonos)
-
+	dones := 0
+	for dones < intMonos {
+		<-done
+		dones++
+	}
 }
 
 func getSha256(s string) string {
@@ -58,7 +78,56 @@ func getSha256(s string) string {
 	return sha1_hash
 }
 
-func scraper(origen string, tam_cola int, nivel int, url string, mono_id int) {
+func buscarMono(inicio int, fin int, f *os.File, done chan struct{}, colaGeneral []Mono, no_mono int) {
+	for i := inicio; i < fin; i++ {
+		monoActual := colaGeneral[i]
+		monoActual.mono = no_mono
+		_, err := f.WriteString(fmt.Sprint(monoActual))
+		if err != nil {
+			panic(err)
+		}
+	}
+	done <- struct{}{}
+}
+
+func llenarCola(intCola, intNr int, url string, colaGeneral []Mono) (cola []Mono) {
+	links, cola := scraper("0", intCola, url, 0, colaGeneral)
+	for _, link := range links {
+		fmt.Println("****************otro hijo*****************")
+		cola = hijos(intCola, intNr, 0, getSha256(url), link, 0, cola)
+		if len(cola) >= intCola {
+			break
+		}
+	}
+	return cola
+}
+
+func hijos(intCola int, nivel int, nivelActual int, origen string, link string, mono_id int, colaGeneral []Mono) (cola []Mono) {
+	fmt.Println(nivelActual)
+	if nivelActual >= nivel {
+		fmt.Println("saliendo")
+		return colaGeneral
+	} else {
+		links := []string{}
+		links, cola = scraper(origen, intCola, link, mono_id, colaGeneral)
+		nivelActual++
+		if len(cola) < intCola {
+			for _, element := range links {
+				cola = hijos(intCola, nivel, nivelActual, getSha256(link), element, mono_id, cola)
+				if len(cola) >= intCola {
+					break
+				}
+			}
+			return cola
+		} else {
+			return cola
+		}
+
+	}
+	return cola
+}
+
+func scraper(origen string, tam_cola int, url string, mono_id int, colaGeneral []Mono) (links []string, cola []Mono) {
 	base_url := "https://es.wikipedia.org"
 
 	if !strings.Contains(url, base_url) {
@@ -75,8 +144,6 @@ func scraper(origen string, tam_cola int, nivel int, url string, mono_id int) {
 
 	// CONTAR LA CANTIDAD DE ENLACES
 
-	links := []string{}
-
 	c.OnHTML("p", func(e *colly.HTMLElement) {
 
 		// CONTAR LA CANTIDAD DE PALABRAS
@@ -85,7 +152,8 @@ func scraper(origen string, tam_cola int, nivel int, url string, mono_id int) {
 
 		// CONTAR LA CANTIDAD DE ENLACES
 
-		links = e.ChildAttrs("a", "href")
+		links = append(links, e.ChildAttrs("a", "href")...)
+		//fmt.Println(links)
 		cantLinks = cantLinks + len(links)
 
 	})
@@ -97,8 +165,10 @@ func scraper(origen string, tam_cola int, nivel int, url string, mono_id int) {
 		url:             url,
 		mono:            mono_id,
 	}
-
+	if len(colaGeneral) <= tam_cola {
+		cola = append(colaGeneral, mono)
+	}
 	fmt.Println(mono)
 	c.Visit(url)
-
+	return links, cola
 }
