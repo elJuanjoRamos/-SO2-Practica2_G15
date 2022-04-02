@@ -136,13 +136,12 @@ func hijos(intCola int, nivel int, nivelActual int, origen string, link string, 
 	} else {
 		links := []string{}
 		links, cola = scraper(origen, intCola, link, mono_id, colaGeneral)
-		nivelActual--
 		if len(cola) <= intCola {
 			for index, element := range links {
 				if index >= nivelActual {
 					break
 				}
-				cola = hijos(intCola, nivel, nivelActual, getSha256(link), element, mono_id, cola)
+				cola = hijos(intCola, nivel, nivelActual-1, getSha256(link), element, mono_id, cola)
 				if len(cola) >= intCola {
 					break
 				}
